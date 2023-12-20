@@ -1,5 +1,8 @@
 #include <fstream>
 #include <random>
+#include <sstream>
+#include <utility>
+#include <vector>
 
 #include "ppm.h"
 
@@ -41,24 +44,34 @@ image average(const image &im, int s) {
 
 int main() {
     image im(h, w);
-    for (int i = 0; i < h; i++)
-        for (int j = 0; j < w; j++)
-            for (int k = 0; k < 3; k++) im(i, j, k) = 0xef;
+    vector<pair<int, int>> bases;
     for (int b = 0, l = 0; b + k * w < h; b += db, l++) {
-        for (int x = dist(rng) - dx; x < w + dx; x += dx) {
-            int y = x * k + b;
-            int c = col[l % 2];
-            for (int xx = x - r; xx <= x + r; xx++) {
-                if (xx < 0 || xx >= w) continue;
-                for (int yy = y - r; yy <= y + r; yy++) {
-                    if (yy < 0 || yy >= h) continue;
-                    if (sq(yy - y) + sq(xx - x) > sq(r)) continue;
-                    for (int k = 0; k < 3; k++)
-                        im(yy, xx, k) = c >> (16 - k * 8) & 255;
+        bases.emplace_back(b, dist(rng));
+    }
+    for (int f = 0; f < dx; f++) {
+        for (int i = 0; i < h; i++)
+            for (int j = 0; j < w; j++)
+                for (int k = 0; k < 3; k++) im(i, j, k) = 0xef;
+        for (int l = 0; l < (int)bases.size(); l++) {
+            auto [b, x0] = bases[l];
+            for (int x = (x0 + f * (l % 2 ? -1 : 1) + dx) % dx - dx; x < w + dx;
+                 x += dx) {
+                int y = x * k + b;
+                int c = col[l % 2];
+                for (int xx = x - r; xx <= x + r; xx++) {
+                    if (xx < 0 || xx >= w) continue;
+                    for (int yy = y - r; yy <= y + r; yy++) {
+                        if (yy < 0 || yy >= h) continue;
+                        if (sq(yy - y) + sq(xx - x) > sq(r)) continue;
+                        for (int k = 0; k < 3; k++)
+                            im(yy, xx, k) = c >> (16 - k * 8) & 255;
+                    }
                 }
             }
         }
+        stringstream name_ss;
+        name_ss << "circles-" << f << ".ppm";
+        ofstream s(name_ss.str());
+        s << average(im, 1);
     }
-    ofstream s("circles.ppm");
-    s << average(im, 1);
 }
